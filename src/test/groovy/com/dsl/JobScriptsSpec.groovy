@@ -50,26 +50,6 @@ class JobScriptsSpec extends Specification {
         file << TestUtil.getJobFiles()
     }
 
-    @Unroll
-    void 'insure no restricted patterns in script #file.name'(File file) {
-        when:
-            def jobText = file.text
-            def prohibitedPatterns = [ "curl.*-v.*", "curl -j" ] as String[]
-        then:
-          def matchProhibitedPatterns = []
-          def result = ""
-          prohibitedPatterns.each { p ->
-              jobText.eachLine { l ->
-                  if (l =~ /${p}/) {
-                      result = "ERROR - Prohibited Pattern ${p} found in ${file}!"
-                      matchProhibitedPatterns << result
-                  }
-              }
-          }
-          assert matchProhibitedPatterns.size() == 0
-        where:
-            file << TestUtil.getJobFiles()
-    }
     /**
      * Write the config.xml for each generated job and view to the build dir.
      */

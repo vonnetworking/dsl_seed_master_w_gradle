@@ -54,4 +54,3 @@ job("$basePath/resources-example-external") {
         groovyPostBuild readFileFromWorkspace('src/scripts/postProcess.groovy')
     }
 }
-

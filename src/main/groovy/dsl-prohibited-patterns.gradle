@@ -1,0 +1,7 @@
+class dslProhibitedPatterns implements Plugin<Project> {
+    void apply(Project project) {
+      project.ext = {
+        prohibitedPatterns = [ "curl.*-v.*", "curl -j" ] as String[]
+      }
+    }
+}

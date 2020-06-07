@@ -1,5 +1,31 @@
 apply plugin: 'groovy'
 
+/**
+*   The dslProhibitedPatterns class simply writes a set of patterns out that
+* should not be found in any jenkins job.  These patterns are comsumed in
+* unit tests in /src/test/groovy/com/dsl/JobScriptsSpec.groovy
+*
+*   TODO: This class needs to be extracted into a separate published plugin.
+*         The plugin should be kept outside the dsl seed repo as it defines
+*         compliance items that should remain under the control of
+*         a separate group for SoD reasons.
+*
+**/
+
+class dslProhibitedPatterns implements Plugin<Project> {
+    void apply(Project project) {
+        String patterns = '''curl.*-v.*
+.*curl.*-j
+'''
+        def file = new File("prohibited.patterns")
+        file.withWriter('UTF-8') { writer ->
+          writer.write(patterns)
+        }
+    }
+}
+
+apply plugin: dslProhibitedPatterns
+
 sourceSets {
     jobs {
         groovy {

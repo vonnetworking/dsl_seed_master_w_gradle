@@ -8,7 +8,6 @@ job("$basePath/resources-example-inline") {
 
     steps {
         shell '''
-            curl -I -v "https://www.google.com"
             # install node/grunt if necessary
             node_version=0.10.26
             node_name=node-v${node_version}-linux-x64

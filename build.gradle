@@ -185,7 +185,7 @@ task gatherJobs() {
     def repoParam = System.getenv('GIT_REPO')
     println "repoParam set to value: $repoParam"
     if (repoParam) {
-      repos << repoParam 
+      repos << "$repoParam test"
     } else {
       println "Gathering job files from repos in repo_list..."
       File repo_file = file('repo_list')

@@ -183,6 +183,7 @@ task gatherJobs() {
   doLast {
     def repos = []
     def repoParam = System.getProperty('GIT_REPO')
+    println "repoParam set to value: $repoParam"
     if (repoParam) {
       repos << repoParam 
     } else {

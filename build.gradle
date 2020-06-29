@@ -1,12 +1,20 @@
 
 plugins {
   id 'org.ajoberstar.grgit' version '4.0.2'
+  id 'org.vonnetworking.dslseedvalidator' version '0.1.0'
 }
 
 import org.ajoberstar.grgit.Grgit
 
 apply plugin: 'groovy'
 
+allprojects {
+  tasks.withType(JavaForkOptions) {
+    // Forked processes like GradleWorkerMain for tests won't steal focus!
+    // necessary on MAC to avoid desktop shift
+    jvmArgs '-Djava.awt.headless=true'
+  }
+}
 /**
 *   The dslProhibitedPatterns class simply writes a set of patterns out that
 * should not be found in any jenkins job.  These patterns are comsumed in
@@ -19,19 +27,67 @@ apply plugin: 'groovy'
 *
 **/
 
+/* Abstracted this to a separate plugin to provide greater control and easier distribution
 class dslProhibitedPatterns implements Plugin<Project> {
     void apply(Project project) {
-        String patterns = '''curl.*-v.*
+      String patterns = '''curl.*-v.*
 .*curl.*-j
 '''
-        def file = new File("prohibited.patterns")
-        file.withWriter('UTF-8') { writer ->
-          writer.write(patterns)
-        }
+      def file = new File("prohibited.patterns")
+      file.withWriter('UTF-8') { writer ->
+        writer.write(patterns)
+      }
+
+      project.extensions.create("jobFileValidator", JobFileValidatorExtension)
     }
 }
 
+class JobFileValidatorExtension {
+  static Boolean Check(File jobFile) {
+    def result = true; //assume the job is good
+
+    // --- Start Standard Pattern Check ---
+    // check that the file contains required patterns so that overrides can be correctly applied
+    def requiredElems = ['''String jobFolder =.*''',
+                         '''String jobName =.*''',
+                         '''String jobDescription = .*''',
+                         '''folder\\(jobFolder\\).*''',
+                         '''.*description jobDescription.*''',
+                         '''job\\("\\$jobFolder/\\$jobName"\\).*''']
+     requiredElems.each { patternStr -> //check that files contain necessary data elements
+      def pattern = ~patternStr
+      def patternMatches = pattern.matcher(jobFile.text)
+      if (patternMatches.getCount() != 1) { //make sure each string is matched once and only once
+          println "WARNING - Missing required line '$pattern' in file $jobFile"
+          println "WARNING -     $jobFile will be excluded from seed job"
+          result = false;
+      }
+    }
+    // --- End Standard Pattern Check ---
+
+    // --- Start Prohibited String Check ---
+    // Validate that no prohibited strings are found in the job files
+    def prohibitedPatterns = ['curl.*-v.*',
+                              '.*curl.*-j.*',
+                              '.*rm -rf.*',
+                              '.*rm -fr.*']
+    prohibitedPatterns.each { p ->
+        jobFile.eachLine { l ->
+            if (l =~ /${p}/) {
+                println "WARNING - Prohibited Pattern '$p' found in $jobFile!"
+                println "WARNING -     $jobFile will be excluded from seed job"
+                result = false;
+            }
+        }
+    }
+    // --- End Prohibited String Check ---
+
+    return result;
+  } // end Check method
+} // end class JobFileValidatorExtension
+
 apply plugin: dslProhibitedPatterns
+*/
 
 sourceSets {
     jobs {
@@ -123,8 +179,59 @@ task resolveTestPlugins(type: Copy) {
         new File(destinationDir, 'index').setText(baseNames.join('\n'), 'UTF-8')
     }
 }
+task gatherJobs() {
+  doLast {
+    println "Gathering job files from repos in repo_list..."
+    File repo_file = file('repo_list')
+    repo_file.readLines().each { repoLine ->
+      ArrayList<String> okJobs = []
+      def fields = repoLine.split()
+      def repo = fields[0]
+      def folder = fields[1]
+      println "Gathering job files from: $repo"
+
+      def destJobDir = "src/jobs"
+      String uuid = UUID.randomUUID();
+      def cloneDir = buildDir.toString() + "/" + uuid
+      def cloneJobDir = cloneDir + "/src/jobs"
+
+      def grgit = Grgit.clone(dir: cloneDir, uri: repo.trim())
+
+      FileTree cloneJobTree = fileTree(cloneJobDir)
+
+      cloneJobTree.each {
+        def fname = it.name
+        def fPath = cloneJobDir + "/" + fname
+        def jobFilePath = new File(fPath)
+        println jobFilePath
+        if (jobFileValidator.Check(jobFilePath)) {
+          println "Standardizing jobFile: $jobFilePath"
+          def jobFileText = jobFilePath.text
+          //def newJobFileText = jobFileValidator.Standardize(jobFileText, 'prefix', 'product')
+          copy {
+            from(cloneJobDir)
+            into(destJobDir)
+            include(fname)
+          }
+        } else {
+          "WARNING - Job File: $fname from $repo failed validation!  - it will be excluded from build"
+        }
+      }
+
+      /*okJobs.each { okFname ->
+        println okFname
+        copy {
+          from(cloneJobDir)
+          into(destJobDir)
+          include(okFname)
+        }
+      }*/
+    }
+  }
+}
 
 test {
+    dependsOn tasks.gatherJobs
     dependsOn tasks.resolveTestPlugins
     inputs.files sourceSets.jobs.groovy.srcDirs
 }

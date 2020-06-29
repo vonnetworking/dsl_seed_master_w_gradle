@@ -1,10 +1,11 @@
-String basePath = 'example6'
-
-folder(basePath) {
-    description 'This example shows how to include script resources from the workspace.'
+String jobFolder = 'example6'
+String jobName = 'test2_example_job'
+String jobDescription = 'This is a basic description of the job.'
+folder(jobFolder) {
+    description jobDescription
 }
 
-job("$basePath/resources-example-inline") {
+job("$jobFolder/$jobName") {
 
     steps {
         shell '''
@@ -39,17 +40,5 @@ job("$basePath/resources-example-inline") {
                 manager.buildFailure()
             }
         '''.stripIndent().trim()
-    }
-}
-
-
-job("$basePath/resources-example-external") {
-
-    steps {
-        shell readFileFromWorkspace('src/scripts/gruntTest.sh')
-    }
-
-    publishers {
-        groovyPostBuild readFileFromWorkspace('src/scripts/postProcess.groovy')
     }
 }

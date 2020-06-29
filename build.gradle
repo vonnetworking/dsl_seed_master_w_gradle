@@ -181,9 +181,17 @@ task resolveTestPlugins(type: Copy) {
 }
 task gatherJobs() {
   doLast {
-    println "Gathering job files from repos in repo_list..."
-    File repo_file = file('repo_list')
-    repo_file.readLines().each { repoLine ->
+    def repos = []
+    def repoParam = System.getProperty('GIT_REPO')
+    if (repoParam) {
+      repos << repoParam 
+    } else {
+      println "Gathering job files from repos in repo_list..."
+      File repo_file = file('repo_list')
+      repos = repo_file.readLines()
+    }
+
+    repos.each { repoLine ->
       ArrayList<String> okJobs = []
       def fields = repoLine.split()
       def repo = fields[0]
